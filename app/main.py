@@ -1,24 +1,16 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.cors import setup_cors
 from app.routes.contact import router as contact_router
+from app.routes.auth import router as auth_router
 
 
 app = FastAPI()
 
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+setup_cors(app)
 
 app.include_router(contact_router)
+app.include_router(auth_router)
 
 
 @app.get("/")

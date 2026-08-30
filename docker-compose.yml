@@ -4,11 +4,11 @@ services:
     container_name: ecommerce_mysql
     restart: always
 
-environment:
-  MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-  MYSQL_DATABASE: ${MYSQL_DATABASE}
-  MYSQL_USER: ${MYSQL_USER}
-  MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
 
     ports:
       - "3306:3306"
@@ -16,5 +16,15 @@ environment:
     volumes:
       - mysql_data:/var/lib/mysql
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ecommerce_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"      
+
 volumes:
   mysql_data:
+    external: true
+    name: ecommerce_mysql_data
