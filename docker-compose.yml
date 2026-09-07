@@ -20,11 +20,32 @@ services:
     image: axllent/mailpit:latest
     container_name: ecommerce_mailpit
     restart: unless-stopped
+
     ports:
       - "1025:1025"
-      - "8025:8025"      
+      - "8025:8025"
+
+  minio:
+    image: minio/minio:latest
+    container_name: ecommerce_minio
+    restart: unless-stopped
+
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+    volumes:
+      - minio_data:/data
+
+    command: server /data --console-address ":9001"
 
 volumes:
   mysql_data:
     external: true
     name: ecommerce_mysql_data
+
+  minio_data: 
