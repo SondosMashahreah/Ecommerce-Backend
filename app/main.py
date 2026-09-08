@@ -19,11 +19,24 @@ from app.routes.rating import router as rating_router
 
 from app.routes.orders import router as orders_router
 
+from app.routes.admin import (
+    router as admin_router
+)
+
+from app.routes.admin_products import (
+    router as admin_products_router
+)
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
 setup_cors(app)
+
+app.include_router(
+    admin_products_router,
+    prefix="/api/v1"
+)
 
 app.include_router(contact_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
@@ -33,6 +46,7 @@ app.include_router(cart_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
 app.include_router(favorites_router, prefix="/api/v1")
 app.include_router(rating_router, prefix="/api/v1")
+app.include_router(admin_router,prefix="/api/v1")
 
 @app.get("/")
 def home():

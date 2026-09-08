@@ -14,10 +14,10 @@ from app.services.minio_service import upload_file
 from app.services.product import (
     create_product,
     create_product_item,
-    get_categories,
-    get_product_by_id,
     get_products,
     search_products,
+    get_product_by_id,
+    get_categories,
 )
 
 

@@ -22,7 +22,7 @@ from app.models.user import User
 
 def create_order(db: Session, user_id: int):
     try:
-        # 1. Get the current user's cart.
+
         cart_items = (
             db.query(CartItem)
             .options(
@@ -51,7 +51,6 @@ def create_order(db: Session, user_id: int):
 
         total_amount = 0.0
 
-        # 3. Convert every cart item into an order item.
         for cart_item in cart_items:
             product_item = (
                 db.query(ProductItem)
@@ -122,13 +121,10 @@ def create_order(db: Session, user_id: int):
 
             total_amount += subtotal
 
-            # 4. Successful checkout:
-            # physical stock is reduced,
-            # and cart reservation is released.
+
             product_item.stock -= quantity
             product_item.reserved_stock -= quantity
 
-            # 5. Remove item from cart WITHOUT using clear_cart().
             db.delete(cart_item)
 
         order.total_amount = total_amount
@@ -141,10 +137,8 @@ def create_order(db: Session, user_id: int):
 
         db.add(history)
 
-        # 7. Everything succeeds together.
         db.commit()
 
-        # Reload the order with its relationships.
         return get_order_by_id(
             db=db,
             user_id=user_id,
