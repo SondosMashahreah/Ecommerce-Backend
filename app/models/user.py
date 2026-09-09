@@ -1,6 +1,9 @@
 from datetime import datetime
+
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
+
 from app.db.database import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -11,7 +14,8 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     profile_image_path = Column(String(500), nullable=True)
-    role = Column(String(50), nullable=False, default="customer") 
+    role = Column(String(50), nullable=False, default="customer")
+    is_active = Column(Boolean, nullable=False, default=True)
     is_verified = Column(Boolean, nullable=False, default=False)
     otp = Column(String(6), nullable=True)
     otp_expires_at = Column(DateTime, nullable=True)

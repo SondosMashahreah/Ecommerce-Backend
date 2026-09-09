@@ -282,12 +282,17 @@ def update_order_status(
     db: Session,
     order_id: int,
     new_status: OrderStatus,
+    allow_admin_override: bool = False,
 ):
     try:
         order = (
             db.query(Order)
-            .options(joinedload(Order.items))
-            .filter(Order.id == order_id)
+            .options(
+                joinedload(Order.items)
+            )
+            .filter(
+                Order.id == order_id
+            )
             .with_for_update()
             .first()
         )
@@ -297,6 +302,9 @@ def update_order_status(
                 status_code=404,
                 detail="Order not found",
             )
+
+        if order.status == new_status:
+            return order
 
         allowed_transitions = {
             OrderStatus.PENDING: [
@@ -324,28 +332,117 @@ def update_order_status(
             ],
         }
 
-        allowed_next_statuses = (
-            allowed_transitions.get(
-                order.status,
-                [],
+        main_order_statuses = {
+            OrderStatus.PENDING,
+            OrderStatus.CONFIRMED,
+            OrderStatus.PROCESSING,
+            OrderStatus.READY,
+            OrderStatus.DONE,
+        }
+
+        if allow_admin_override:
+            if (
+                order.status
+                not in main_order_statuses
+                or new_status
+                not in main_order_statuses
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Admin override is only allowed "
+                        "between normal order statuses"
+                    ),
+                )
+
+        else:
+            allowed_next_statuses = (
+                allowed_transitions.get(
+                    order.status,
+                    [],
+                )
             )
-        )
+
+            if (
+                new_status
+                not in allowed_next_statuses
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Cannot change order status "
+                        f"from {order.status.value} "
+                        f"to {new_status.value}"
+                    ),
+                )
 
         if (
             new_status
-            not in allowed_next_statuses
+            == OrderStatus.RETURNED
         ):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Cannot change order status "
-                    f"from {order.status.value} "
-                    f"to {new_status.value}"
-                ),
+            for order_item in order.items:
+                product_item = (
+                    db.query(ProductItem)
+                    .filter(
+                        ProductItem.id
+                        == order_item.product_item_id
+                    )
+                    .with_for_update()
+                    .first()
+                )
+
+                if product_item:
+                    product_item.stock += (
+                        order_item.quantity
+                    )
+
+        order.status = new_status
+
+        if (
+            new_status
+            == OrderStatus.DONE
+        ):
+            order.completed_at = (
+                datetime.utcnow()
             )
 
-        # If returned product physically comes back,
-        # restore its stock.
+        elif (
+            allow_admin_override
+            and new_status
+            != OrderStatus.DONE
+        ):
+            order.completed_at = None
+
+        history = OrderStatusHistory(
+            order_id=order.id,
+            status=new_status,
+        )
+
+        db.add(history)
+        db.commit()
+
+        return (
+            db.query(Order)
+            .options(
+                joinedload(Order.items),
+                joinedload(
+                    Order.status_history
+                ),
+            )
+            .filter(
+                Order.id == order.id
+            )
+            .first()
+        )
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
+
         if (
             new_status
             == OrderStatus.RETURNED

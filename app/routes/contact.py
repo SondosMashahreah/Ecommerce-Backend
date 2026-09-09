@@ -1,32 +1,32 @@
-from fastapi import APIRouter
+from fastapi import (
+    APIRouter,
+    Depends,
+)
 
-from app.db.database import SessionLocal
-from app.models.contact import Contact
+from sqlalchemy.orm import Session
+
+from app.db.database import get_db
 from app.schemas.contact import ContactMessage
+from app.services.contact import (
+    create_contact_message,
+)
 
 
 router = APIRouter()
 
 
 @router.post("/contact")
-def receive_contact(contact: ContactMessage):
-
-    db = SessionLocal()
-
-    new_contact = Contact(
-        name=contact.name,
-        email=contact.email,
-        subject=contact.subject,
-        message=contact.message
+def receive_contact(
+    contact: ContactMessage,
+    db: Session = Depends(get_db),
+):
+    new_contact = create_contact_message(
+        db=db,
+        data=contact,
     )
 
-    db.add(new_contact)
-    db.commit()
-    db.refresh(new_contact)
-
-    db.close()
-
     return {
-        "message": "Message saved successfully!",
-        "id": new_contact.id
+        "message":
+            "Message saved successfully!",
+        "id": new_contact.id,
     }

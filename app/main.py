@@ -27,6 +27,18 @@ from app.routes.admin_products import (
     router as admin_products_router
 )
 
+from app.routes.admin_orders import (
+    router as admin_orders_router,
+)
+
+from app.routes.admin_customers import (
+    router as admin_customers_router,
+)
+
+from app.routes.admin_messages import (
+    router as admin_messages_router,
+)
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -47,6 +59,9 @@ app.include_router(orders_router, prefix="/api/v1")
 app.include_router(favorites_router, prefix="/api/v1")
 app.include_router(rating_router, prefix="/api/v1")
 app.include_router(admin_router,prefix="/api/v1")
+app.include_router(admin_orders_router, prefix="/api/v1")
+app.include_router(admin_customers_router, prefix="/api/v1")
+app.include_router(admin_messages_router, prefix="/api/v1")
 
 @app.get("/")
 def home():

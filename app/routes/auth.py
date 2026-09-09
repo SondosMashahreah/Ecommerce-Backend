@@ -172,6 +172,12 @@ def signin(
             )
         )
 
+    if not user.is_active:
+        raise HTTPException(
+        status_code=403,
+        detail="Account is disabled",
+    )
+
     access_token = (
         create_access_token(
             user.id
@@ -357,6 +363,12 @@ def refresh_access_token(
             status_code=401,
             detail="User not found"
         )
+
+    if not user.is_active:
+        raise HTTPException(
+        status_code=403,
+        detail="Account is disabled",
+    )
 
     new_access_token = (
         create_access_token(
