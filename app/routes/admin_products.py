@@ -31,7 +31,7 @@ from app.services.admin_product import (
 )
 from app.services.product import create_product
 from app.schemas.product import ProductCreate
-from app.services.minio_service import upload_file
+from app.services.supabase_storage_service import upload_file
 
 
 router = APIRouter(

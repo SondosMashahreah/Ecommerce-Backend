@@ -10,7 +10,7 @@ from app.schemas.product import (
     ProductItemResponse,
     ProductResponse,
 )
-from app.services.minio_service import upload_file
+from app.services.supabase_storage_service import upload_file
 from app.services.product import (
     create_product,
     create_product_item,

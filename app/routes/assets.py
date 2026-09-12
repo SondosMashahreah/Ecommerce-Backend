@@ -1,12 +1,15 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException
-from fastapi.responses import StreamingResponse
-from minio.error import S3Error
+from fastapi.responses import RedirectResponse
 
-from app.services.minio_service import upload_file
-from app.core.minio_client import minio_client, MINIO_BUCKET_NAME
+from app.services.supabase_storage_service import upload_file
+from app.core.supabase_client import (
+    supabase_client,
+    SUPABASE_BUCKET_NAME
+)
 
 
 router = APIRouter(prefix="/assets", tags=["Assets"])
+
 
 @router.post("/upload")
 def upload_asset(file: UploadFile = File(...)):
@@ -21,20 +24,16 @@ def upload_asset(file: UploadFile = File(...)):
 @router.get("/{file_path:path}")
 def get_asset(file_path: str):
     try:
-        response = minio_client.get_object(
-            MINIO_BUCKET_NAME,
-            file_path
+        public_url = (
+            supabase_client
+            .storage
+            .from_(SUPABASE_BUCKET_NAME)
+            .get_public_url(file_path)
         )
 
-        return StreamingResponse(
-            response,
-            media_type=response.headers.get(
-                "Content-Type",
-                "application/octet-stream"
-            )
-        )
+        return RedirectResponse(url=public_url)
 
-    except S3Error:
+    except Exception:
         raise HTTPException(
             status_code=404,
             detail="Asset not found"
