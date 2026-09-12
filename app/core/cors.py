@@ -7,6 +7,7 @@ def setup_cors(app: FastAPI):
         CORSMiddleware,
         allow_origins=[
             "http://localhost:5173",
+            "https://ecommerce-frontend-ugqg.onrender.com",
         ],
         allow_credentials=True,
         allow_methods=["*"],
