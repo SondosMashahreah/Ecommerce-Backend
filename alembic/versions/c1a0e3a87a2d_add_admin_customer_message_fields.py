@@ -28,6 +28,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.true(),
         ),
+        if_not_exists=True,
     )
 
     op.add_column(
@@ -38,6 +39,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.false(),
         ),
+        if_not_exists=True,
     )
 
     op.add_column(
@@ -48,8 +50,8 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("CURRENT_TIMESTAMP"),
         ),
+        if_not_exists=True,
     )
-
 
 def downgrade() -> None:
     op.drop_column(
