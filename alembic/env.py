@@ -1,6 +1,6 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import create_engine
 from sqlalchemy import pool
 
 from alembic import context
@@ -21,11 +21,6 @@ from app.models.contact import Contact
 config = context.config
 
 
-config.set_main_option(
-    "sqlalchemy.url",
-    str(engine.url),
-)
-
 
 if config.config_file_name is not None:
     fileConfig(
@@ -37,9 +32,7 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option(
-        "sqlalchemy.url"
-    )
+    url = engine.url
 
     context.configure(
         url=url,
@@ -56,12 +49,8 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(
-            config.config_ini_section,
-            {}
-        ),
-        prefix="sqlalchemy.",
+    connectable = create_engine(
+        engine.url,
         poolclass=pool.NullPool,
     )
 
