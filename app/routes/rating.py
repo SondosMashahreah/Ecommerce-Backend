@@ -35,7 +35,8 @@ def create_or_update_rating(
         db=db,
         user_id=current_user.id,
         product_id=data.product_id,
-        rating_value=data.rating
+        rating_value=data.rating,
+        comment=data.comment,
     )
 
 

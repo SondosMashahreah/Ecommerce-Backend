@@ -16,6 +16,7 @@ from app.routes.products import router as products_router
 from app.routes.cart import router as cart_router
 from app.routes.favorite import router as favorites_router
 from app.routes.rating import router as rating_router
+from app.routes.coupons import router as coupons_router
 
 from app.routes.orders import router as orders_router
 
@@ -58,6 +59,7 @@ app.include_router(cart_router, prefix="/api/v1")
 app.include_router(orders_router, prefix="/api/v1")
 app.include_router(favorites_router, prefix="/api/v1")
 app.include_router(rating_router, prefix="/api/v1")
+app.include_router(coupons_router, prefix="/api/v1")
 app.include_router(admin_router,prefix="/api/v1")
 app.include_router(admin_orders_router, prefix="/api/v1")
 app.include_router(admin_customers_router, prefix="/api/v1")

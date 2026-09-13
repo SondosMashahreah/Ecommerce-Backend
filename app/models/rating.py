@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -30,7 +30,10 @@ class Rating(Base):
         nullable=False
     )
 
+    comment = Column(Text, nullable=True)
+
     product = relationship("Product")
+    user = relationship("User")
 
     __table_args__ = (
         UniqueConstraint(

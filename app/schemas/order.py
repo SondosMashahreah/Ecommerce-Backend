@@ -5,6 +5,10 @@ from pydantic import BaseModel
 from app.models.order import OrderStatus
 
 
+class OrderCreate(BaseModel):
+    coupon_code: str | None = None
+
+
 class OrderItemResponse(BaseModel):
     id: int
     product_item_id: int

@@ -1,0 +1,356 @@
+From 6bebeda64bab0281b887276431694ad0acd948eb Mon Sep 17 00:00:00 2001
+From: SondosMashahreah <193234077+SondosMashahreah@users.noreply.github.com>
+Date: Sun, 13 Sep 2026 13:03:57 +0200
+Subject: [PATCH] Add rating comments and coupon validation
+
+---
+ .../e6f8a1b2c3d4_add_rating_comments.py       | 22 ++++++++++++++
+ app/main.py                                   |  2 ++
+ app/models/rating.py                          |  5 +++-
+ app/routes/coupons.py                         | 17 +++++++++++
+ app/routes/orders.py                          |  4 ++-
+ app/routes/rating.py                          |  3 +-
+ app/schemas/coupon.py                         | 13 +++++++++
+ app/schemas/order.py                          |  4 +++
+ app/schemas/rating.py                         | 10 +++++++
+ app/services/coupon.py                        | 29 +++++++++++++++++++
+ app/services/order.py                         |  6 +++-
+ app/services/rating.py                        | 29 +++++++++++++++++--
+ 12 files changed, 137 insertions(+), 7 deletions(-)
+ create mode 100644 alembic/versions/e6f8a1b2c3d4_add_rating_comments.py
+ create mode 100644 app/routes/coupons.py
+ create mode 100644 app/schemas/coupon.py
+ create mode 100644 app/services/coupon.py
+
+diff --git a/alembic/versions/e6f8a1b2c3d4_add_rating_comments.py b/alembic/versions/e6f8a1b2c3d4_add_rating_comments.py
+new file mode 100644
+index 0000000..625afb5
+--- /dev/null
++++ b/alembic/versions/e6f8a1b2c3d4_add_rating_comments.py
+@@ -0,0 +1,22 @@
++"""add rating comments
++
++Revision ID: e6f8a1b2c3d4
++Revises: c1a0e3a87a2d
++"""
++
++from alembic import op
++import sqlalchemy as sa
++
++
++revision = "e6f8a1b2c3d4"
++down_revision = "c1a0e3a87a2d"
++branch_labels = None
++depends_on = None
++
++
++def upgrade():
++    op.add_column("ratings", sa.Column("comment", sa.Text(), nullable=True))
++
++
++def downgrade():
++    op.drop_column("ratings", "comment")
+diff --git a/app/main.py b/app/main.py
+index 298f648..da9beba 100644
+--- a/app/main.py
++++ b/app/main.py
+@@ -16,6 +16,7 @@ from app.routes.products import router as products_router
+ from app.routes.cart import router as cart_router
+ from app.routes.favorite import router as favorites_router
+ from app.routes.rating import router as rating_router
++from app.routes.coupons import router as coupons_router
+ 
+ from app.routes.orders import router as orders_router
+ 
+@@ -58,6 +59,7 @@ app.include_router(cart_router, prefix="/api/v1")
+ app.include_router(orders_router, prefix="/api/v1")
+ app.include_router(favorites_router, prefix="/api/v1")
+ app.include_router(rating_router, prefix="/api/v1")
++app.include_router(coupons_router, prefix="/api/v1")
+ app.include_router(admin_router,prefix="/api/v1")
+ app.include_router(admin_orders_router, prefix="/api/v1")
+ app.include_router(admin_customers_router, prefix="/api/v1")
+diff --git a/app/models/rating.py b/app/models/rating.py
+index 28f72b9..cabedb2 100644
+--- a/app/models/rating.py
++++ b/app/models/rating.py
+@@ -1,4 +1,4 @@
+-from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint
++from sqlalchemy import Column, Integer, ForeignKey, Text, UniqueConstraint
+ from sqlalchemy.orm import relationship
+ 
+ from app.db.database import Base
+@@ -30,7 +30,10 @@ class Rating(Base):
+         nullable=False
+     )
+ 
++    comment = Column(Text, nullable=True)
++
+     product = relationship("Product")
++    user = relationship("User")
+ 
+     __table_args__ = (
+         UniqueConstraint(
+diff --git a/app/routes/coupons.py b/app/routes/coupons.py
+new file mode 100644
+index 0000000..b978a5a
+--- /dev/null
++++ b/app/routes/coupons.py
+@@ -0,0 +1,17 @@
++from fastapi import APIRouter, Depends
++
++from app.models.user import User
++from app.routes.auth import get_current_user
++from app.schemas.coupon import CouponRequest, CouponResponse
++from app.services.coupon import calculate_coupon
++
++
++router = APIRouter(prefix="/coupons", tags=["Coupons"])
++
++
++@router.post("/validate", response_model=CouponResponse)
++def validate_coupon(
++    data: CouponRequest,
++    current_user: User = Depends(get_current_user),
++):
++    return calculate_coupon(data.code, data.subtotal)
+diff --git a/app/routes/orders.py b/app/routes/orders.py
+index 7141bb0..5f614e2 100644
+--- a/app/routes/orders.py
++++ b/app/routes/orders.py
+@@ -10,6 +10,7 @@ from app.routes.auth import get_current_user
+ 
+ from app.schemas.order import (
+     OrderResponse,
++    OrderCreate,
+     OrderStatusUpdate,
+ )
+ 
+@@ -33,12 +34,14 @@ router = APIRouter(
+ 
+ @router.post("/", response_model=OrderResponse)
+ def create_new_order(
++    data: OrderCreate | None = None,
+     db: Session = Depends(get_db),
+     current_user: User = Depends(get_current_user),
+ ):
+     return create_order(
+         db=db,
+         user_id=current_user.id,
++        coupon_code=data.coupon_code if data else None,
+     )
+ 
+ 
+@@ -190,4 +193,3 @@ def download_invoice(
+                 )
+         },
+     )
+-
+diff --git a/app/routes/rating.py b/app/routes/rating.py
+index ed92885..42c8864 100644
+--- a/app/routes/rating.py
++++ b/app/routes/rating.py
+@@ -35,7 +35,8 @@ def create_or_update_rating(
+         db=db,
+         user_id=current_user.id,
+         product_id=data.product_id,
+-        rating_value=data.rating
++        rating_value=data.rating,
++        comment=data.comment,
+     )
+ 
+ 
+diff --git a/app/schemas/coupon.py b/app/schemas/coupon.py
+new file mode 100644
+index 0000000..f45bb1a
+--- /dev/null
++++ b/app/schemas/coupon.py
+@@ -0,0 +1,13 @@
++from pydantic import BaseModel, Field
++
++
++class CouponRequest(BaseModel):
++    code: str = Field(min_length=1, max_length=50)
++    subtotal: float = Field(gt=0)
++
++
++class CouponResponse(BaseModel):
++    code: str
++    discount_percent: float
++    discount_amount: float
++    total: float
+diff --git a/app/schemas/order.py b/app/schemas/order.py
+index bf92d70..4068379 100644
+--- a/app/schemas/order.py
++++ b/app/schemas/order.py
+@@ -5,6 +5,10 @@ from pydantic import BaseModel
+ from app.models.order import OrderStatus
+ 
+ 
++class OrderCreate(BaseModel):
++    coupon_code: str | None = None
++
++
+ class OrderItemResponse(BaseModel):
+     id: int
+     product_item_id: int
+diff --git a/app/schemas/rating.py b/app/schemas/rating.py
+index f2326af..fdd7c67 100644
+--- a/app/schemas/rating.py
++++ b/app/schemas/rating.py
+@@ -8,18 +8,28 @@ class RatingCreate(BaseModel):
+         ge=1,
+         le=5
+     )
++    comment: str | None = Field(default=None, max_length=1000)
+ 
+ 
+ class RatingResponse(BaseModel):
+     id: int
+     product_id: int
+     rating: int
++    comment: str | None
+ 
+     model_config = {
+         "from_attributes": True
+     }
+ 
+ 
++class ProductReview(BaseModel):
++    id: int
++    rating: int
++    comment: str
++    user_name: str
++
++
+ class ProductRatingSummary(BaseModel):
+     average_rating: float
+     ratings_count: int
++    reviews: list[ProductReview] = Field(default_factory=list)
+diff --git a/app/services/coupon.py b/app/services/coupon.py
+new file mode 100644
+index 0000000..d9dda1a
+--- /dev/null
++++ b/app/services/coupon.py
+@@ -0,0 +1,29 @@
++from fastapi import HTTPException
++
++
++COUPONS = {
++    "SAVE10": {"percent": 10, "minimum": 50},
++    "WELCOME20": {"percent": 20, "minimum": 100},
++}
++
++
++def calculate_coupon(code: str, subtotal: float):
++    normalized_code = code.strip().upper()
++    coupon = COUPONS.get(normalized_code)
++
++    if not coupon:
++        raise HTTPException(status_code=400, detail="Invalid coupon code")
++
++    if subtotal < coupon["minimum"]:
++        raise HTTPException(
++            status_code=400,
++            detail=f"Minimum order is ${coupon['minimum']}",
++        )
++
++    discount = round(subtotal * coupon["percent"] / 100, 2)
++    return {
++        "code": normalized_code,
++        "discount_percent": coupon["percent"],
++        "discount_amount": discount,
++        "total": round(subtotal - discount, 2),
++    }
+diff --git a/app/services/order.py b/app/services/order.py
+index dac63a4..d494641 100644
+--- a/app/services/order.py
++++ b/app/services/order.py
+@@ -18,9 +18,10 @@ from reportlab.lib.pagesizes import A4
+ from reportlab.pdfgen import canvas
+ 
+ from app.models.user import User
++from app.services.coupon import calculate_coupon
+ 
+ 
+-def create_order(db: Session, user_id: int):
++def create_order(db: Session, user_id: int, coupon_code: str | None = None):
+     try:
+ 
+         cart_items = (
+@@ -127,6 +128,9 @@ def create_order(db: Session, user_id: int):
+ 
+             db.delete(cart_item)
+ 
++        if coupon_code:
++            total_amount = calculate_coupon(coupon_code, total_amount)["total"]
++
+         order.total_amount = total_amount
+ 
+         # 6. First status-history entry.
+diff --git a/app/services/rating.py b/app/services/rating.py
+index 98ea674..a9dfcbd 100644
+--- a/app/services/rating.py
++++ b/app/services/rating.py
+@@ -8,7 +8,8 @@ def rate_product(
+     db: Session,
+     user_id: int,
+     product_id: int,
+-    rating_value: int
++    rating_value: int,
++    comment: str | None = None,
+ ):
+     existing_rating = (
+         db.query(Rating)
+@@ -21,6 +22,7 @@ def rate_product(
+ 
+     if existing_rating:
+         existing_rating.rating = rating_value
++        existing_rating.comment = comment.strip() if comment else None
+ 
+         db.commit()
+         db.refresh(existing_rating)
+@@ -30,7 +32,8 @@ def rate_product(
+     new_rating = Rating(
+         user_id=user_id,
+         product_id=product_id,
+-        rating=rating_value
++        rating=rating_value,
++        comment=comment.strip() if comment else None,
+     )
+ 
+     db.add(new_rating)
+@@ -58,9 +61,29 @@ def get_product_rating(
+     average = result[0] or 0
+     count = result[1] or 0
+ 
++    reviews = (
++        db.query(Rating)
++        .filter(
++            Rating.product_id == product_id,
++            Rating.comment.isnot(None),
++            Rating.comment != "",
++        )
++        .order_by(Rating.id.desc())
++        .all()
++    )
++
+     return {
+         "average_rating": round(float(average), 1),
+-        "ratings_count": count
++        "ratings_count": count,
++        "reviews": [
++            {
++                "id": review.id,
++                "rating": review.rating,
++                "comment": review.comment,
++                "user_name": review.user.username,
++            }
++            for review in reviews
++        ],
+     }
+ 
+ 
+-- 
+2.51.1
+

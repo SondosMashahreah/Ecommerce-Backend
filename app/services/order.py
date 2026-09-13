@@ -18,9 +18,10 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
 from app.models.user import User
+from app.services.coupon import calculate_coupon
 
 
-def create_order(db: Session, user_id: int):
+def create_order(db: Session, user_id: int, coupon_code: str | None = None):
     try:
 
         cart_items = (
@@ -126,6 +127,9 @@ def create_order(db: Session, user_id: int):
             product_item.reserved_stock -= quantity
 
             db.delete(cart_item)
+
+        if coupon_code:
+            total_amount = calculate_coupon(coupon_code, total_amount)["total"]
 
         order.total_amount = total_amount
 

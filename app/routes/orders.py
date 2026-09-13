@@ -10,6 +10,7 @@ from app.routes.auth import get_current_user
 
 from app.schemas.order import (
     OrderResponse,
+    OrderCreate,
     OrderStatusUpdate,
 )
 
@@ -33,12 +34,14 @@ router = APIRouter(
 
 @router.post("/", response_model=OrderResponse)
 def create_new_order(
+    data: OrderCreate | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     return create_order(
         db=db,
         user_id=current_user.id,
+        coupon_code=data.coupon_code if data else None,
     )
 
 
@@ -190,4 +193,3 @@ def download_invoice(
                 )
         },
     )
-
