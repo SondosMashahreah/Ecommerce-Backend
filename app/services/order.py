@@ -129,7 +129,7 @@ def create_order(db: Session, user_id: int, coupon_code: str | None = None):
             db.delete(cart_item)
 
         if coupon_code:
-            total_amount = calculate_coupon(coupon_code, total_amount)["total"]
+            total_amount = calculate_coupon(db, coupon_code, total_amount)["total"]
 
         order.total_amount = total_amount
 

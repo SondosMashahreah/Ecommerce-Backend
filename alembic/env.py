@@ -16,6 +16,8 @@ from app.models.order import (
     OrderStatusHistory,
 )
 from app.models.contact import Contact
+from app.models.coupon import Coupon
+from app.models.rating import Rating
 
 
 config = context.config

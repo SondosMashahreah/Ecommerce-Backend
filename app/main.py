@@ -8,6 +8,9 @@ from app.models.product import Product, ProductItem
 from app.models.cart import CartItem
 from app.models.order import Order, OrderItem, OrderStatusHistory
 
+from app.routes.admin_coupons import router as admin_coupons_router
+from app.routes.admin_reviews import router as admin_reviews_router
+
 from app.routes.contact import router as contact_router
 from app.routes.auth import router as auth_router
 
@@ -50,6 +53,9 @@ app.include_router(
     admin_products_router,
     prefix="/api/v1"
 )
+
+app.include_router(admin_coupons_router, prefix="/api/v1")
+app.include_router(admin_reviews_router, prefix="/api/v1")
 
 app.include_router(contact_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
