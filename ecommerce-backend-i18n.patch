@@ -1,0 +1,178 @@
+--- a/app/models/product.py
++++ b/app/models/product.py
+@@ -1,4 +1,12 @@
++    # English is kept in the original columns for backwards compatibility.
+     name = Column(String(255), nullable=False)
+     description = Column(Text, nullable=True)
++    category = Column(String(100), nullable=False)
++
++    # Explicit Arabic content. Never machine-translate catalog text at render time:
++    # storing both languages keeps future products deterministic and searchable.
++    name_ar = Column(String(255), nullable=True)
++    description_ar = Column(Text, nullable=True)
++    category_ar = Column(String(100), nullable=True)
++
+     price = Column(Float, nullable=False)
+-    category = Column(String(100), nullable=False)
+--- a/app/schemas/product.py
++++ b/app/schemas/product.py
+@@ -1,6 +1,9 @@
+ class ProductCreate(BaseModel):
+     name: str = Field(min_length=1, max_length=255)
++    name_ar: str | None = Field(default=None, max_length=255)
+     description: str | None = None
++    description_ar: str | None = None
+     price: float = Field(gt=0)
+     category: str = Field(min_length=1, max_length=100)
++    category_ar: str | None = Field(default=None, max_length=100)
+     item: ProductItemCreate
+--- a/app/schemas/product.py
++++ b/app/schemas/product.py
+@@ -1,7 +1,10 @@
+ class ProductResponse(BaseModel):
+     id: int
+     name: str
++    name_ar: str | None = None
+     description: str | None
++    description_ar: str | None = None
+     price: float
+     category: str
++    category_ar: str | None = None
+     image_path: str | None
+--- a/app/schemas/admin_product.py
++++ b/app/schemas/admin_product.py
+@@ -1,3 +1,14 @@
++    name_ar: str | None = Field(
++        default=None,
++        max_length=255,
++    )
++
+     description: str | None = None
++    description_ar: str | None = None
++
++    category_ar: str | None = Field(
++        default=None,
++        max_length=100,
++    )
+ 
+     price: float | None = Field(
+--- a/app/services/product.py
++++ b/app/services/product.py
+@@ -1,6 +1,9 @@
+         product = Product(
+             name=product_data.name,
++            name_ar=product_data.name_ar,
+             description=product_data.description,
++            description_ar=product_data.description_ar,
+             price=product_data.price,
+             category=product_data.category,
++            category_ar=product_data.category_ar,
+             image_path=image_path,
+--- a/app/services/product.py
++++ b/app/services/product.py
+@@ -1,5 +1,8 @@
+         .filter(
+             Product.name.ilike(pattern)
++            | Product.name_ar.ilike(pattern)
+             | Product.description.ilike(pattern)
++            | Product.description_ar.ilike(pattern)
+             | Product.category.ilike(pattern)
++            | Product.category_ar.ilike(pattern)
+         )
+--- a/app/routes/admin_products.py
++++ b/app/routes/admin_products.py
+@@ -1,6 +1,9 @@
+     name: str = Form(...),
++    name_ar: str | None = Form(None),
+     description: str | None = Form(None),
++    description_ar: str | None = Form(None),
+     price: float = Form(...),
+     category: str = Form(...),
++    category_ar: str | None = Form(None),
+ 
+     sku: str = Form(...),
+--- a/app/routes/admin_products.py
++++ b/app/routes/admin_products.py
+@@ -1,6 +1,9 @@
+     product_data = ProductCreate(
+         name=name,
++        name_ar=name_ar,
+         description=description,
++        description_ar=description_ar,
+         price=price,
+         category=category,
++        category_ar=category_ar,
+         item={
+--- a/app/routes/admin_products.py
++++ b/app/routes/admin_products.py
+@@ -1,5 +1,8 @@
+         name=data.name,
++        name_ar=data.name_ar,
+         description=data.description,
++        description_ar=data.description_ar,
+         price=data.price,
+         category=data.category,
++        category_ar=data.category_ar,
+     )
+--- a/app/services/admin_product.py
++++ b/app/services/admin_product.py
+@@ -1,6 +1,9 @@
+     name: str | None = None,
++    name_ar: str | None = None,
+     description: str | None = None,
++    description_ar: str | None = None,
+     price: float | None = None,
+     category: str | None = None,
++    category_ar: str | None = None,
+     image_path: str | None = None,
+ ):
+--- a/app/services/admin_product.py
++++ b/app/services/admin_product.py
+@@ -1,7 +1,16 @@
+     if name is not None:
+         product.name = name
++
++    if name_ar is not None:
++        product.name_ar = name_ar or None
+ 
+     if description is not None:
+         product.description = description
+ 
++    if description_ar is not None:
++        product.description_ar = description_ar or None
++
++    if category_ar is not None:
++        product.category_ar = category_ar or None
++
+     if price is not None:
+--- a/alembic/versions/a9f4c2d8e1b7_add_arabic_product_content.py
++++ b/alembic/versions/a9f4c2d8e1b7_add_arabic_product_content.py
+@@ -0,0 +1,28 @@
++"""add Arabic product content
++
++Revision ID: a9f4c2d8e1b7
++Revises: f7b2c8d9e0a1
++Create Date: 2026-09-15
++
++"""
++from typing import Sequence, Union
++
++from alembic import op
++import sqlalchemy as sa
++
++revision: str = "a9f4c2d8e1b7"
++down_revision: Union[str, None] = "f7b2c8d9e0a1"
++branch_labels: Union[str, Sequence[str], None] = None
++depends_on: Union[str, Sequence[str], None] = None
++
++
++def upgrade() -> None:
++    op.add_column("products", sa.Column("name_ar", sa.String(length=255), nullable=True))
++    op.add_column("products", sa.Column("description_ar", sa.Text(), nullable=True))
++    op.add_column("products", sa.Column("category_ar", sa.String(length=100), nullable=True))
++
++
++def downgrade() -> None:
++    op.drop_column("products", "category_ar")
++    op.drop_column("products", "description_ar")
++    op.drop_column("products", "name_ar")
