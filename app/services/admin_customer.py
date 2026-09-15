@@ -1,5 +1,6 @@
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 
 from app.models.user import User
 
@@ -61,6 +62,8 @@ def update_customer_role(
     user: User,
     role: str,
 ):
+    if user.role == "guest":
+        raise HTTPException(status_code=400, detail="Guest accounts cannot be promoted.")
     user.role = role
 
     db.commit()

@@ -32,14 +32,14 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     )
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, *, guest: bool = False) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
     payload = {
         "sub": str(user_id),
-        "type": "access",
+        "type": "guest_access" if guest else "access",
         "exp": expire
     }
 
@@ -50,14 +50,14 @@ def create_access_token(user_id: int) -> str:
     )
 
 
-def create_refresh_token(user_id: int) -> str:
+def create_refresh_token(user_id: int, *, guest: bool = False) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
-        days=REFRESH_TOKEN_EXPIRE_DAYS
+        days=int(os.getenv("GUEST_SESSION_DAYS", "365")) if guest else REFRESH_TOKEN_EXPIRE_DAYS
     )
 
     payload = {
         "sub": str(user_id),
-        "type": "refresh",
+        "type": "guest_refresh" if guest else "refresh",
         "exp": expire
     }
 
@@ -76,7 +76,7 @@ def decode_access_token(token: str):
             algorithms=[JWT_ALGORITHM]
         )
 
-        if payload.get("type") != "access":
+        if payload.get("type") not in {"access", "guest_access"}:
             return None
 
         return payload
@@ -93,7 +93,7 @@ def decode_refresh_token(token: str):
             algorithms=[JWT_ALGORITHM]
         )
 
-        if payload.get("type") != "refresh":
+        if payload.get("type") not in {"refresh", "guest_refresh"}:
             return None
 
         return payload

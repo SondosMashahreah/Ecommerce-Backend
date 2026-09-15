@@ -42,6 +42,7 @@ from app.core.security import (
 )
 
 from app.models.user import User
+from app.services.guest import create_guest, guest_tokens, merge_guest
 
 
 router = APIRouter(
@@ -71,19 +72,23 @@ def get_current_user(
 
     user_id = payload.get("sub")
 
-    if not user_id:
+    if not str(user_id or "").isdigit():
         raise HTTPException(
             status_code=401,
             detail="Invalid token"
         )
 
-    user = (
+    user_query = (
         db.query(User)
         .filter(
             User.id == int(user_id)
         )
-        .first()
     )
+    # Serialize guest operations with session transfer: a request either finishes
+    # before the merge or sees the consumed session, never writes to an old cart.
+    if payload.get("type") == "guest_access":
+        user_query = user_query.with_for_update()
+    user = user_query.first()
 
     if not user:
         raise HTTPException(
@@ -91,7 +96,26 @@ def get_current_user(
             detail="User not found"
         )
 
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account is disabled")
+    if (payload.get("type") == "guest_access") != (user.role == "guest"):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
     return user
+
+
+@router.post("/guest", response_model=TokenResponse)
+def start_guest_session(db: Session = Depends(get_db)):
+    return create_guest(db)
+
+
+@router.post("/guest/merge")
+def merge_guest_session(
+    data: RefreshTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return merge_guest(db, current_user, data.refresh_token)
 
 
 @router.post(
@@ -344,7 +368,7 @@ def refresh_access_token(
 
     user_id = payload.get("sub")
 
-    if not user_id:
+    if not str(user_id or "").isdigit():
         raise HTTPException(
             status_code=401,
             detail="Invalid refresh token"
@@ -369,6 +393,11 @@ def refresh_access_token(
         status_code=403,
         detail="Account is disabled",
     )
+
+    if (payload.get("type") == "guest_refresh") != (user.role == "guest"):
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    if user.role == "guest":
+        return guest_tokens(user)
 
     new_access_token = (
         create_access_token(
