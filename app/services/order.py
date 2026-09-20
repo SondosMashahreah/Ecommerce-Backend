@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session, joinedload
 
 from app.models.cart import CartItem
 from app.models.order import (
@@ -19,6 +18,8 @@ from reportlab.pdfgen import canvas
 
 from app.models.user import User
 from app.services.coupon import calculate_coupon
+
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 
 def create_order(db: Session, user_id: int, coupon_code: str | None = None):
@@ -291,12 +292,8 @@ def update_order_status(
     try:
         order = (
             db.query(Order)
-            .options(
-                joinedload(Order.items)
-            )
-            .filter(
-                Order.id == order_id
-            )
+            .options(selectinload(Order.items))
+            .filter(Order.id == order_id)
             .with_for_update()
             .first()
         )
